@@ -14,7 +14,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - 
         name: Get version
@@ -82,7 +82,7 @@ jobs:
     steps:
       - 
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - 
         name: Init Python 3.13
@@ -120,7 +120,7 @@ jobs:
         arch: ["amd64", "arm64"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set Up QEMU
         uses: docker/setup-qemu-action@v3
@@ -148,7 +148,7 @@ jobs:
         arch: ["amd64", "arm64"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set Up QEMU
         uses: docker/setup-qemu-action@v3
@@ -175,7 +175,7 @@ jobs:
     steps:
       - 
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - 
         name: Get version
