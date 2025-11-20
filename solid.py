@@ -32,7 +32,8 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 
 s_paths_all = [
-    quote("测试/"),  # 512
+    quote("115/"),  # 1024
+    quote("PikPak/"),  # 512
     quote("动漫/"),  # 256
     quote("每日更新/"),  # 128
     quote("电影/"),  # 64
@@ -53,31 +54,76 @@ t_paths = [
 ]
 
 s_paths = [
+    quote("115/"),
     quote("每日更新/"),
     quote("纪录片（已刮削）/"),
+    quote("音乐/"),
+    quote("综艺/"),
 ]
 
-s_pool = [
-    "https://emby.xiaoya.pro/",
-    "https://icyou.eu.org/",
-    "https://emby.8.net.co/",
-    "https://emby.raydoom.tk/",
-    "https://embyxiaoya.laogl.top/",
-    "https://emby-data.poxi1221.eu.org/",
-    "https://emby-data.bdbd.fun/",
-    "https://emby-data.ymschh.top/",
-    "https://emby-data.r2s.site/",
-    "https://emby-data.neversay.eu.org/",
-    "https://emby-data.800686.xyz/",
-    "https://emby-data.xn--yetq23gxma.org/",
-    "https://emby-data.younv.at/",
-    "https://emby.kaiserver.uk/",
-    "https://emby-data.ermaokj.cn/",
-    "https://emby-data.wwwh.eu.org/",
-    "https://emby-data.f1rst.top/",
-    "https://emby-data.wx1.dpdns.org/",
-    "https://emby-data.xnn.ee/",
-]
+s_pool = []
+
+def fetch_pool_from_url(url="https://img.xiaoya.pro/crawlerlist.txt"):
+    """Fetch server pool list from remote URL"""
+    try:
+        logger.info("Fetching server pool from %s", url)
+        response = urllib.request.urlopen(url, timeout=10)
+        if response.getcode() == 200:
+            content = response.read().decode("utf-8")
+            pool = []
+            for line in content.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Add https:// prefix if not present
+                    if not line.startswith('http'):
+                        line = 'https://' + line
+                    # Ensure URL ends with /
+                    if not line.endswith('/'):
+                        line += '/'
+
+                    # Handle IDN (Internationalized Domain Names) encoding
+                    try:
+                        parsed = urlparse(line)
+                        # Encode the hostname using IDN
+                        encoded_hostname = parsed.hostname.encode('idna').decode('ascii')
+                        # Reconstruct URL with encoded hostname
+                        line = f"{parsed.scheme}://{encoded_hostname}/"
+                    except (UnicodeError, AttributeError):
+                        # If encoding fails, skip this URL
+                        logger.warning("Skipping invalid domain: %s", line)
+                        continue
+
+                    pool.append(line)
+            if pool:
+                logger.info("Successfully fetched %d servers from pool", len(pool))
+                return pool
+            else:
+                logger.warning("No valid URLs found in remote list")
+        else:
+            logger.warning("Failed to fetch pool, status code: %s", response.getcode())
+    except Exception as e:
+        logger.error("Error fetching pool from %s: %s", url, e)
+
+    # Fallback to default pool
+    logger.info("Using fallback server pool")
+    return [
+        "https://emby.xiaoya.pro/",
+        "https://icyou.eu.org/",
+        "https://emby.8.net.co/",
+        "https://emby.raydoom.tk/",
+        "https://emby.kaiserver.uk/",
+        "https://embyxiaoya.laogl.top/",
+        "https://emby-data.poxi1221.eu.org/",
+        "https://emby-data.ermaokj.cn/",
+        "https://emby-data.bdbd.fun/",
+        "https://emby-data.wwwh.eu.org/",
+        "https://emby-data.f1rst.top/",
+        "https://emby-data.ymschh.top/",
+        "https://emby-data.wx1.us.kg/",
+        "https://emby-data.r2s.site/",
+        "https://emby-data.neversay.eu.org/",
+        "https://emby-data.800686.xyz/",
+    ]
 
 s_folder = [".sync"]
 
@@ -160,58 +206,36 @@ async def fetch_html(url, session, **kwargs) -> str:
                 return None
 
 
-async def parse(url, session, max_retries=3, **kwargs) -> set:
-    global html
-    retries = 0
+async def parse(url, session, **kwargs) -> set:
     files = []
     directories = []
-    while True:
-        if retries < max_retries:
-            try:
-                html = await fetch_html(url=url, session=session, **kwargs)
-                if html is None:
-                    logger.debug(
-                        "Failed to fetch HTML content for URL: %s", unquote(url)
-                    )
-                    return files, directories
-                break
-            except aiohttp.ClientResponseError as e:
-                logger.error(
-                    "aiohttp ClientResponseError for %s [%s]: %s. Retrying (%d/%d)...",
-                    unquote(url),
-                    getattr(e, "status", None),
-                    getattr(e, "message", None),
-                    retries + 1,
-                    max_retries,
-                )
-                retries += 1
-            except (
-                aiohttp.ClientError,
-                aiohttp.http_exceptions.HttpProcessingError,
-                aiohttp.ClientPayloadError,
-            ) as e:
-                logger.error(
-                    "aiohttp exception for %s [%s]: %s",
-                    unquote(url),
-                    getattr(e, "status", None),
-                    getattr(e, "message", None),
-                )
-                return files, directories
-            except Exception as e:
-                logger.exception(
-                    "Non-aiohttp exception occurred:  %s", getattr(e, "__dict__", {})
-                )
-                return files, directories
-        else:
-            logger.error("Max retries reached for %s. Request failed.", unquote(url))
+    try:
+        html = await fetch_html(url=url, session=session, **kwargs)
+        if html is None:
+            logger.debug("Failed to fetch HTML content for URL: %s", unquote(url))
             return files, directories
+    except (
+        aiohttp.ClientError,
+        aiohttp.http_exceptions.HttpProcessingError,
+        aiohttp.ClientPayloadError,
+        aiohttp.ClientResponseError,
+    ) as e:
+        logger.error(
+            "aiohttp exception for %s [%s]: %s",
+            unquote(url),
+            getattr(e, "status", None),
+            getattr(e, "message", None),
+        )
+        return files, directories
+    except Exception as e:
+        logger.exception(
+            "Non-aiohttp exception occurred:  %s", getattr(e, "__dict__", {})
+        )
+        return files, directories
 
     soup = BeautifulSoup(html, "html.parser")
     for link in soup.find_all("a"):
         href = link.get("href")
-        # TODO: Need to handle /cdn-cgi/l/email-protection
-        if href.__contains__("/cdn-cgi/l/email-protection"):
-            continue
         if (
             href != "../"
             and not href.endswith("/")
@@ -222,6 +246,7 @@ async def parse(url, session, max_retries=3, **kwargs) -> set:
                 abslink = urljoin(url, href)
                 filename = unquote(urlparse(abslink).path)
                 timestamp_str = link.next_sibling.strip().split()[0:2]
+                # TODO: Need to handle /cdn-cgi/l/email-protection
                 timestamp = datetime.strptime(" ".join(timestamp_str), "%d-%b-%Y %H:%M")
                 timestamp_unix = int(timestamp.timestamp())
                 filesize = link.next_sibling.strip().split()[2]
@@ -599,7 +624,12 @@ async def main():
     args = parser.parse_args()
     if args.debug:
         logging.getLogger("emd").setLevel(logging.DEBUG)
-    logging.info("*** xiaoya_emd version 1.6.15 ***")
+    logging.info("*** xiaoya_emd version 1.6.1 ***")
+
+    # Fetch server pool dynamically
+    global s_pool
+    s_pool = fetch_pool_from_url()
+
     paths = []
     if args.all:
         paths = s_paths_all
