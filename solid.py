@@ -61,24 +61,69 @@ s_paths = [
     quote("综艺/"),
 ]
 
-s_pool = [
-    "https://emby.xiaoya.pro/",
-    "https://icyou.eu.org/",
-    "https://emby.8.net.co/",
-    "https://emby.raydoom.tk/",
-    "https://emby.kaiserver.uk/",
-    "https://embyxiaoya.laogl.top/",
-    "https://emby-data.poxi1221.eu.org/",
-    "https://emby-data.ermaokj.cn/",
-    "https://emby-data.bdbd.fun/",
-    "https://emby-data.wwwh.eu.org/",
-    "https://emby-data.f1rst.top/",
-    "https://emby-data.ymschh.top/",
-    "https://emby-data.wx1.us.kg/",
-    "https://emby-data.r2s.site/",
-    "https://emby-data.neversay.eu.org/",
-    "https://emby-data.800686.xyz/",
-]
+s_pool = []
+
+def fetch_pool_from_url(url="https://img.xiaoya.pro/crawlerlist.txt"):
+    """Fetch server pool list from remote URL"""
+    try:
+        logger.info("Fetching server pool from %s", url)
+        response = urllib.request.urlopen(url, timeout=10)
+        if response.getcode() == 200:
+            content = response.read().decode("utf-8")
+            pool = []
+            for line in content.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Add https:// prefix if not present
+                    if not line.startswith('http'):
+                        line = 'https://' + line
+                    # Ensure URL ends with /
+                    if not line.endswith('/'):
+                        line += '/'
+
+                    # Handle IDN (Internationalized Domain Names) encoding
+                    try:
+                        parsed = urlparse(line)
+                        # Encode the hostname using IDN
+                        encoded_hostname = parsed.hostname.encode('idna').decode('ascii')
+                        # Reconstruct URL with encoded hostname
+                        line = f"{parsed.scheme}://{encoded_hostname}/"
+                    except (UnicodeError, AttributeError):
+                        # If encoding fails, skip this URL
+                        logger.warning("Skipping invalid domain: %s", line)
+                        continue
+
+                    pool.append(line)
+            if pool:
+                logger.info("Successfully fetched %d servers from pool", len(pool))
+                return pool
+            else:
+                logger.warning("No valid URLs found in remote list")
+        else:
+            logger.warning("Failed to fetch pool, status code: %s", response.getcode())
+    except Exception as e:
+        logger.error("Error fetching pool from %s: %s", url, e)
+
+    # Fallback to default pool
+    logger.info("Using fallback server pool")
+    return [
+        "https://emby.xiaoya.pro/",
+        "https://icyou.eu.org/",
+        "https://emby.8.net.co/",
+        "https://emby.raydoom.tk/",
+        "https://emby.kaiserver.uk/",
+        "https://embyxiaoya.laogl.top/",
+        "https://emby-data.poxi1221.eu.org/",
+        "https://emby-data.ermaokj.cn/",
+        "https://emby-data.bdbd.fun/",
+        "https://emby-data.wwwh.eu.org/",
+        "https://emby-data.f1rst.top/",
+        "https://emby-data.ymschh.top/",
+        "https://emby-data.wx1.us.kg/",
+        "https://emby-data.r2s.site/",
+        "https://emby-data.neversay.eu.org/",
+        "https://emby-data.800686.xyz/",
+    ]
 
 s_folder = [".sync"]
 
@@ -579,7 +624,12 @@ async def main():
     args = parser.parse_args()
     if args.debug:
         logging.getLogger("emd").setLevel(logging.DEBUG)
-    logging.info("*** xiaoya_emd version 1.6.0 ***")
+    logging.info("*** xiaoya_emd version 1.6.1 ***")
+
+    # Fetch server pool dynamically
+    global s_pool
+    s_pool = fetch_pool_from_url()
+
     paths = []
     if args.all:
         paths = s_paths_all
