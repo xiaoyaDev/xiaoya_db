@@ -108,7 +108,7 @@ jobs:
 
       - 
         name: Upload Windows File
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
             name: solid-windows-amd64
             path: dist/solid.exe
@@ -136,7 +136,7 @@ jobs:
         shell: pwsh
 
       - name: Upload linux file
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: solid-linux-${{ matrix.arch }}
           path: solid-linux-${{ matrix.arch }}
@@ -164,7 +164,7 @@ jobs:
         shell: pwsh
 
       - name: Upload linux file
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: solid-linux-musl-${{ matrix.arch }}
           path: solid-linux-musl-${{ matrix.arch }}
@@ -186,7 +186,7 @@ jobs:
 
       - 
         name: Download Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
 
       - 
         name: Rename
